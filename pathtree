@@ -1,0 +1,158 @@
+#!/usr/bin/env python
+
+import sys
+from os import path, mkdir, makedirs
+import warnings
+warnings.simplefilter("always")
+from functools import reduce
+from glob import glob
+try:
+    from collections.abc import Sequence
+except:
+    # python2 version
+    from collections import Sequence
+
+from pathtree import *
+from ask import new as ask_factory
+ask = ask_factory(accepted="Yes,No,Always,Stop", default="yes")
+
+
+def sanity(flatpath="a/b/c/d", mode=PathTree.MODE_IGNORE):
+    pt = PathTree(flatpath, mode)
+    assert pt[0] == 'a', """pt[0] == 'a'"""
+    assert pt[None] is pt, """pt[None] is pt"""
+    assert pt['.'] is pt, """pt['.'] is pt"""
+    assert pt['..'] is pt.parent, """pt['.'] is pt.parent"""
+    return True
+
+
+def sanity_check(flatpath_list, verbosity=3, **opts):
+    if len(flatpath_list) == 0:
+        flatpath_list = ["a/b/c/d"]
+    counts = {"PASS": 0, "FAIL": 0, "ERR": 0, "TOTAL": 0}
+    for flatpath in flatpath_list:
+        try:
+            tag = "PASS" if sanity(flatpath, **opts) else "FAIL"
+        except:
+            tag = "ERR"
+        if verbosity > 1 and (verbosity > 2 or tag != "PASS"):
+            print("[{:5s}] sanity_test({:})".format(tag, repr(flatpath)))
+        counts[tag] += 1
+        counts["TOTAL"] += 1
+    if verbosity > 1 and (verbosity > 2 or counts["PASS"] != counts["TOTAL"]):
+        print("========= totals =========")
+    if verbosity > 0 or verbosity > 1 and counts["PASS"] != counts["TOTAL"]:
+        for tag in ("PASS", "FAIL", "ERR", "TOTAL"):
+            print("[{:5s}] {:5d} sanity_tests".format(tag, counts[tag]))
+    return counts["PASS"] == counts["TOTAL"]
+
+
+def main():
+    """pathtree -- a path tree manager.
+Usage:
+    pathtree batch [ file | - ]  -- Run multiple comamnds from file or stdin.
+    pathtree help [ topic ]  -- Prints command (or this) help doc.
+    pathtree [ command ] { option } { path }  -- (see Commands)
+Commands:
+    check           Check that directory structure exists (default command).
+    create          Create non-existent directories.
+    list            Prints path tree report.
+    prune           Remove path and any sub directories or files.
+    quit            Exits (useful in batch mode).
+    sanity          Run pathtree module sanity check.
+    walk            Walk through path tree and query action for each item.
+Options:
+    --help, -?, -h  Prints this document and terminates.
+    --test-only     All paths are fictious and none will be created,
+                    removed or altered (default).
+    --no            Respond "No" to any queries.
+    --parent=path   Relative paths will to relative to parent path.
+    -q              Report nothing but exit with value (-1).
+    --strict        Exit if path does not already exist.
+    -v              Report errors (default).
+    -vv             Report errors and warnings.
+    -vvv            Report all.
+    -vvvv           Report all, plus debugging.
+    --yes           Respond "Yes" to any queries.
+    --warning       Issue warning if directory does not already exist.
+    --              Terminate argument parsing."""
+    def help():
+        print(main.__doc__)
+        return True
+
+    args, opts, cmds = sys.argv[1:], {}, []
+    verbosity = 1
+    start_args, stop_args = 0, len(args)
+    i_args = start_args
+    while i_args < len(args):
+        arg = args[i_args]
+        if arg == "sanity":
+            args.pop(i_args)
+            cmds.append(sanity_check)
+            break
+        else:
+            i_args += 1
+    i_args = start_args
+    while i_args < len(args):
+        arg = args[i_args]
+        if arg in ("-?", "-h", "--help"):
+            args.pop(i_args)
+            exit(0 if help() else -1)
+        elif arg.startswith("--parent="):
+            parent = arg[9:]
+            if not parent:
+                print("invalid parent {:}"
+                      .format(repr(parent), file=sysstderr))
+                exit(-1)
+            args.pop(i_args)
+            opts["parent"] = parent
+        elif arg == "-q":
+            args.pop(i_args)
+            verbosity = 0
+        elif arg.startswith("-v") and all(c == 'v' for c in arg[1:]):
+            args.pop(i_args)
+            verbosity = len(arg) - 1
+            if verbosity > 4:
+                print("Verbosity as -v, -vv, -vvv or -vvvv, not {:}"
+                      .format(repr(arg)),
+                      file=sys.stderr)
+                exit(-1)
+        elif arg in ("--yes", "--no"):
+            answer = arg[2:]
+            if "answer" in opts and answer != opts["answer"]:
+                print("Collision for answer {:} and {:}"
+                      .format(answer, opts["answer"]), file=sys.stderr)
+                exit(-1)
+            args.pop(i_args)
+            opts["answer"] = answer
+        elif arg.startswith('--') and arg[2:] in PATHTREE_MODES:
+            args.pop(i_args)
+            mode = arg[2:]
+            if "mode" in opts and mode != opts["mode"]:
+                print("Collision for modes {:} and {:}"
+                      .format(mode, opts["mode"]), file=sys.stderr)
+                exit(-1)
+            opts["mode"] = mode
+        elif arg == "--":
+            i_args, n_args = i_args + 1, i_args
+            args = args[:i_arg]
+            break
+        elif arg.startswith('-'):
+            print("Unsupported command or option {:}".format(repr(arg)))
+            exit(-1)
+        else:
+            i_args += 1
+    else:
+        n_args = i_args
+    success = True
+    if len(cmds) == 0:
+        if verbosity >= 1:
+            print("Nothing to do.")
+    else:
+        for cmd in cmds:
+            success = success and cmd(args, verbosity=verbosity, **opts)
+    exit(0 if success else -1)
+
+
+if __name__ == '__main__':
+    exit(0 if main() else -1)
