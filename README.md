@@ -5,8 +5,10 @@ A python path tree module and cli tool
 Clone it.
 
 ## Module usage
+```
 from pathtree import PathTree
 pt = PathTree("some/path", parent="~")
+```
 
 ## Command usage (cli)
 ```
