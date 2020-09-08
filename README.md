@@ -1,6 +1,9 @@
 # pypathtree
 A python path tree module and cli tool
 
+## Important notice
+Just an important point, if you use this to prune, delete, restructure or in anyway modify file or directories, please be VERY careful as you should be with any tool that can modify an entire tree.  It's best to use the "--test-only" option if you will be doing anything with a muliple level directory structure, or jut anything at all before doing a real run.  Even so, no matter what you do or do not do it is your responsibility for whatever or however you use this tool, even if the tool or modules does or does not do what is expected or detail in any documentation or other material.  You have been warned.  Please be cautious with any tool like this one and especially this one.  It can potentially wipe important files and worse if you are running as root or a permissive user or have bad permissions setup, you can easily destroy your system.  Capiche?
+
 ## Installation
 Clone it.
 
